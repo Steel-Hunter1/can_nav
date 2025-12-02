@@ -32,7 +32,9 @@
 
 //============================== хранилище меток ==========================================
 #include "QVector"
-QVector <CanMessage> Messages;
+
+
+QVector <Message> Messages;
 
 
 //========================================================================
@@ -73,7 +75,8 @@ RawTxWindow::RawTxWindow(QWidget *parent, Backend &backend) :
 
 
     //====================================================================================================
-    connect(repeatmsg_timer, SIGNAL(timeout()), this, SLOT(QueueModeration()));
+    RepeatListMessages = new QTimer(this);
+    connect(RepeatListMessages, SIGNAL(timeout()), this, SLOT(QueueModeration()));
     //====================================================================================================
 
 
@@ -1116,23 +1119,58 @@ void RawTxWindow::QueueModeration() // функция, которая опери
 {// удаляет все с текстового поля, посылает метки и выдавая информацию
 
     ui->ListOfLabels->clear();
-    CanInterface *intf = _backend.getInterfaceById((CanInterfaceId)ui->comboBoxInterface->currentData().toUInt());
-
+    if (Messages.size() == 0) return;
+    printf("==========================slot called==========================");
     for (int i = 0; i < Messages.size(); i++)
     {
-        ui->ListOfLabels->append(QString(i) +'\t'+ Messages[i].getIdString() +'\t'+ Messages[i].getDataHexString());
+        std::string data = std::to_string(Messages[i].data[0]) +' '+ std::to_string(Messages[i].data[1]) +std::to_string(Messages[i].data[2])
+            +' '+ std::to_string(Messages[i].data[3]) +' '+ std::to_string(Messages[i].data[4]) +' '+ std::to_string(Messages[i].data[5])
+            +' '+ std::to_string(Messages[i].data[6]) +' '+ std::to_string(Messages[i].data[7]);
 
-        intf->sendMessage(Messages[i]);
+        ui->ListOfLabels->append(QString::number(i) + " " + Messages[i].ID + ' ' + QString::fromStdString(data));
+
+        sendListMessage(Messages[i]);
+
     }
 }
+
+void RawTxWindow::changeRepeatRate_custom(int ms)
+{
+    RepeatListMessages->setInterval(ms);
+}
+
+void RawTxWindow::sendRepeatMessage_custom(bool enable)
+{
+    if(enable)
+    {
+        negotCompl = false;
+        motorCounter = 0;
+        RepeatListMessages->start(ui->spinBox_RepeatRate->value());
+        //        repeatmsg_timer->setS
+        // repeatmsg_timer->setSingleShot(true)
+    }
+    else
+    {
+        RepeatListMessages->stop();
+    }
+}
+
+
+
+
+
+
+
 void RawTxWindow::Delete_Label(int index)
 {
+    if (Messages.size() == 0) return;
+
     Messages.remove(index);
 }
 void RawTxWindow::Add_Label ()
 {
-    CanMessage msg;
 
+    Message msg;
     static uint64_t tPrev = 0;
     uint64_t t1 = QDateTime::currentMSecsSinceEpoch();
     fprintf(stderr, "Curr time %lld Diff %lld\n", t1, (t1 - tPrev));
@@ -1186,6 +1224,11 @@ void RawTxWindow::Add_Label ()
 
     uint32_t address = 0;
     QString addrStr = ui->fieldAddressCustom->text();
+
+    msg.ID = ui->fieldAddressCustom->text();
+
+
+
     std::vector<uint32_t> addresses;
     if (addrStr.contains(';'))
     {
@@ -1237,21 +1280,10 @@ void RawTxWindow::Add_Label ()
     // Set payload data
     for(int i=0; i<dlc; i++)
     {
-        msg.setDataAt(i, data_int[i]);
+        msg.data[i]  = data_int[i];
     }
 
-    msg.setId(address);
-    msg.setLength(dlc);
-
-    msg.setExtended(en_extended);
-    msg.setRTR(en_rtr);
-    msg.setErrorFrame(false);
-
-    if(ui->checkbox_BRS->isChecked())
-        msg.setBRS(true);
-    if(ui->checkbox_FD->isChecked())
-        msg.setFD(true);
-
+    msg.address = address;
 
     //==================================================
 
@@ -1259,7 +1291,7 @@ void RawTxWindow::Add_Label ()
 }
 
 
-void RawTxWindow::sendListMessage() // упрощенная версия функци отправки
+void RawTxWindow::sendListMessage(Message message) // упрощенная версия функци отправки
 {
 
     CanMessage msg;
@@ -1275,73 +1307,17 @@ void RawTxWindow::sendListMessage() // упрощенная версия фун�
     static uint8_t data_int[64];
     int data_ctr = 0;
 
-    if (!negotCompl)
-    {
-
-        data_int[data_ctr++] = ui->fieldByteCustom1->text().toUpper().toInt(NULL, 16);
-        data_int[data_ctr++] = ui->fieldByteCustom2->text().toUpper().toInt(NULL, 16);
-        data_int[data_ctr++] = ui->fieldByteCustom3->text().toUpper().toInt(NULL, 16);
-        data_int[data_ctr++] = ui->fieldByteCustom4->text().toUpper().toInt(NULL, 16);
-        data_int[data_ctr++] = ui->fieldByteCustom5->text().toUpper().toInt(NULL, 16);
-        data_int[data_ctr++] = ui->fieldByteCustom6->text().toUpper().toInt(NULL, 16);
-        data_int[data_ctr++] = ui->fieldByteCustom7->text().toUpper().toInt(NULL, 16);
-        data_int[data_ctr++] = ui->fieldByteCustom8->text().toUpper().toInt(NULL, 16);
-
-        negotCompl = true;
-        ui->checkbox_UPD->setCheckState(Qt::CheckState::Checked);
-    }
-    else if (ui->checkbox_UPD->isChecked())
-    {
-        data_int[data_ctr++] = ui->fieldByteCustom1->text().toUpper().toInt(NULL, 16);
-        data_int[data_ctr++] = ui->fieldByteCustom2->text().toUpper().toInt(NULL, 16);
-        data_int[data_ctr++] = ui->fieldByteCustom3->text().toUpper().toInt(NULL, 16);
-        data_int[data_ctr++] = ui->fieldByteCustom4->text().toUpper().toInt(NULL, 16);
-        data_int[data_ctr++] = ui->fieldByteCustom5->text().toUpper().toInt(NULL, 16);
-        data_int[data_ctr++] = ui->fieldByteCustom6->text().toUpper().toInt(NULL, 16);
-        data_int[data_ctr++] = ui->fieldByteCustom7->text().toUpper().toInt(NULL, 16);
-        // data_int[data_ctr++] = motorCounter;
-        data_int[data_ctr++] = ui->fieldByteCustom8->text().toUpper().toInt(NULL, 16);
-
-        motorCounter++;
-
-        ui->checkbox_UPD->setCheckState(Qt::CheckState::Unchecked);
-    }
-    else
-    {
-        // data_int[7] = motorCounter;
-        data_int[7] = ui->fieldByteCustom8->text().toUpper().toInt(NULL, 16);
-        motorCounter++;
-    }
 
 
 
-    uint32_t address = 0;
-    QString addrStr = ui->fieldAddressCustom->text();
+
+    uint32_t address = message.address;
+
     std::vector<uint32_t> addresses;
-    if (addrStr.contains(';'))
-    {
-        std::vector<std::string> tokens;
-        tokenizeStrByDelim(addrStr.toStdString(), tokens, ";");
 
-        for (size_t i = 0; i < tokens.size(); ++i)
-        {
-            if (tokens[i].length())
-            {
-                if (i >= 1)
-                {
-                    addresses.push_back(std::stoul(tokens[i], 0, 16));
-                }
-                else
-                {
-                    address = std::stoul(tokens[i], 0, 16);
-                }
-            }
-        }
-    }
-    else
-    {
-        address = addrStr.toUpper().toUInt(NULL, 16);
-    }
+
+
+
 
     // If address is beyond std address namespace, force extended
     if(address > 0x7ff)
@@ -1366,10 +1342,9 @@ void RawTxWindow::sendListMessage() // упрощенная версия фун�
     }
 
     // Set payload data
-    for(int i=0; i<dlc; i++)
-    {
-        msg.setDataAt(i, data_int[i]);
-    }
+
+    msg.setData(message.data[0],message.data[1],message.data[2],message.data[3],message.data[4],message.data[5],message.data[6],message.data[7]);
+
 
     msg.setId(address);
     msg.setLength(dlc);
@@ -1428,6 +1403,22 @@ void RawTxWindow::on_DeleteButton_clicked()
     if (ok)
     {
         Delete_Label(index);
+    }
+
+}
+
+
+void RawTxWindow::on_activebut_clicked()
+{
+    if (RepeatListMessages->isActive())
+    {
+        sendRepeatMessage_custom(false);
+        ui->activebut->setText("Активировать");
+    }
+    else
+    {
+        sendRepeatMessage_custom(true);
+         ui->activebut->setText("Деактивировать");
     }
 
 }

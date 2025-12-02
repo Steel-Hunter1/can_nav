@@ -2203,6 +2203,19 @@
     <string>Удалить</string>
    </property>
   </widget>
+  <widget class="QPushButton" name="activebut">
+   <property name="geometry">
+    <rect>
+     <x>820</x>
+     <y>300</y>
+     <width>161</width>
+     <height>41</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>активировать</string>
+   </property>
+  </widget>
  </widget>
  <tabstops>
   <tabstop>comboBoxInterface</tabstop>

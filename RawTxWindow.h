@@ -44,7 +44,14 @@ struct TxMsgParams {
     uint8_t length = 0;
     uint8_t* data = 0;
 };
-
+//===========================================================
+struct Message
+{
+    uint32_t address ;
+    uint8_t data[8];
+    QString ID;
+};
+//===============================================================
 class RawTxWindow : public ConfigurableWidget
 {
     Q_OBJECT
@@ -66,15 +73,25 @@ private slots:
     void sendRawMessage();
     void sendQueueMessages();
     void fileSend();
-//===========================================
+//====================================================================================
+
+
     void QueueModeration();
     void Add_Label ();
     void Delete_Label(int index);
     void on_SendButton_clicked();
-///===========================================
+    void sendListMessage(Message message);
+
     void on_DeleteButton_clicked();
 
+    void on_activebut_clicked();
+    void sendRepeatMessage_custom(bool enable);
+    void changeRepeatRate_custom(int ms);
+///===============================================================================
 private:
+    //=================================================================================
+    QTimer * RepeatListMessages;
+    //=================================================================================
     Ui::RawTxWindow *ui;
     Backend &_backend;
     QTimer *repeatmsg_timer;
@@ -86,7 +103,7 @@ private:
     void hideFDFields();
     void showFDFields();
     void sendRawMessage(const TxMsgParams& msg);
-    void sendListMessage();
+
     bool negotCompl = false;
     uint8_t motorCounter = 0;
 };

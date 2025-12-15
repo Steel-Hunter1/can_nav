@@ -33,6 +33,9 @@
 //============================== хранилище меток ==========================================
 #include "QVector"
 
+const int  Start_All =  1;
+const int Stop_All = 2;
+const int Ordinal  = 3;
 
 QVector <Message> Messages;
 
@@ -75,8 +78,16 @@ RawTxWindow::RawTxWindow(QWidget *parent, Backend &backend) :
 
 
     //====================================================================================================
-    RepeatListMessages = new QTimer(this);
-    connect(RepeatListMessages, SIGNAL(timeout()), this, SLOT(QueueModeration()));
+    ui -> labelTableWidget -> setRowCount(0);
+    ui -> labelTableWidget ->setColumnCount(5);
+
+    names_of_colomns << " № " << "Address" << "data" << "Rate" << "Sent";
+    ui->labelTableWidget->setHorizontalHeaderLabels(names_of_colomns);
+    ui->labelTableWidget->setShowGrid(true);
+
+    ui->labelTableWidget->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    ///RepeatListMessages = new QTimer(this);
+    ///connect(RepeatListMessages, SIGNAL(timeout()), this, SLOT(QueueModeration()));
     //====================================================================================================
 
 
@@ -293,8 +304,8 @@ void RawTxWindow::changeDLC()
         ui->DeleteIndex->setEnabled(true);
         ui->SendButton->setEnabled(true);
 
-        ui->ListOfLabels->setEnabled(true);
-        ui->ListOfLabels->isReadOnly();
+       // ui->ListOfLabels->setEnabled(true);
+        //ui->ListOfLabels->isReadOnly();
         //===============================================================
     }
 //    repeatmsg_timer->setInterval(ms);
@@ -1115,10 +1126,20 @@ void RawTxWindow::showFDFields() // показывает поля, куда пи
 ///
 ///
 ///
+///
+///
+///
+
+
+
+
+
+
+
 void RawTxWindow::QueueModeration() // функция, которая оперирует с вектором Messages (в данном случае отправляет поочередно все метки в очереди один раз, привязана к таймеру)
 {// удаляет все с текстового поля, посылает метки и выдавая информацию
 
-    ui->ListOfLabels->clear();
+   // ui->ListOfLabels->clear();
     if (Messages.size() == 0) return;
     printf("==========================slot called==========================");
     for (int i = 0; i < Messages.size(); i++)
@@ -1127,12 +1148,19 @@ void RawTxWindow::QueueModeration() // функция, которая опери
             +' '+ std::to_string(Messages[i].data[3]) +' '+ std::to_string(Messages[i].data[4]) +' '+ std::to_string(Messages[i].data[5])
             +' '+ std::to_string(Messages[i].data[6]) +' '+ std::to_string(Messages[i].data[7]);
 
-        ui->ListOfLabels->append(QString::number(i) + " " + Messages[i].ID + ' ' + QString::fromStdString(data));
+      //  ui->ListOfLabels->append(QString::number(i) + " " + Messages[i].ID + ' ' + QString::fromStdString(data));
 
         sendListMessage(Messages[i]);
 
     }
 }
+
+
+
+
+
+
+
 
 void RawTxWindow::changeRepeatRate_custom(int ms)
 {
@@ -1145,7 +1173,7 @@ void RawTxWindow::sendRepeatMessage_custom(bool enable)
     {
         negotCompl = false;
         motorCounter = 0;
-        RepeatListMessages->start(ui->spinBox_RepeatRate->value());
+        RepeatListMessages->start(ui->spinBox_RepeatRate_custom->value());
         //        repeatmsg_timer->setS
         // repeatmsg_timer->setSingleShot(true)
     }
@@ -1155,9 +1183,52 @@ void RawTxWindow::sendRepeatMessage_custom(bool enable)
     }
 }
 
+void RawTxWindow::Send_Label_Custom(Message *msg, int regime) // после того, как мы добавили метку, нужно ее отправить
+// здесь настраивается таймер для каждой метки
+{
+    if (regime == Start_All)
+    {
+        if (msg->repeat_rate->isActive())
+        {
+
+        }
+        else
+        {
+            connect(msg->repeat_rate, &QTimer::timeout,
+                    this, [this,msg](){ sendListMessage(*msg); });
+            msg->repeat_rate->setInterval(msg->period);
+            msg->repeat_rate->start();
 
 
 
+
+        }
+    }
+    else if (regime == Stop_All)
+    {
+        if (msg->repeat_rate->isActive())
+        {
+            msg->repeat_rate->stop();
+        }
+    }
+
+
+
+    else
+    {
+        if (msg->repeat_rate->isActive())
+            msg->repeat_rate->stop();
+        else
+
+        {
+            //connect(msg->repeat_rate, SIGNAL(timeout()), this, [this,msg] (){SLOT(sendListMessage(*msg)});
+             connect(msg->repeat_rate, &QTimer::timeout,
+                    this, [this,msg](){ sendListMessage(*msg); });
+            msg->repeat_rate->setInterval(msg->period);
+            msg->repeat_rate->start();
+        }
+    }
+}
 
 
 
@@ -1165,7 +1236,16 @@ void RawTxWindow::Delete_Label(int index)
 {
     if (Messages.size() == 0) return;
 
+    Messages[index].repeat_rate->stop();
+    delete Messages[index].repeat_rate;
+
+
     Messages.remove(index);
+    remove_label_from_table(index);
+
+
+
+
 }
 void RawTxWindow::Add_Label ()
 {
@@ -1182,8 +1262,8 @@ void RawTxWindow::Add_Label ()
     static uint8_t data_int[64];
     int data_ctr = 0;
 
-    if (!negotCompl)
-    {
+  //  if (!negotCompl)
+   // {
 
         data_int[data_ctr++] = ui->fieldByteCustom1->text().toUpper().toInt(NULL, 16);
         data_int[data_ctr++] = ui->fieldByteCustom2->text().toUpper().toInt(NULL, 16);
@@ -1194,31 +1274,31 @@ void RawTxWindow::Add_Label ()
         data_int[data_ctr++] = ui->fieldByteCustom7->text().toUpper().toInt(NULL, 16);
         data_int[data_ctr++] = ui->fieldByteCustom8->text().toUpper().toInt(NULL, 16);
 
-        negotCompl = true;
+       // negotCompl = true;
         ui->checkbox_UPD->setCheckState(Qt::CheckState::Checked);
-    }
-    else if (ui->checkbox_UPD->isChecked())
-    {
-        data_int[data_ctr++] = ui->fieldByteCustom1->text().toUpper().toInt(NULL, 16);
-        data_int[data_ctr++] = ui->fieldByteCustom2->text().toUpper().toInt(NULL, 16);
-        data_int[data_ctr++] = ui->fieldByteCustom3->text().toUpper().toInt(NULL, 16);
-        data_int[data_ctr++] = ui->fieldByteCustom4->text().toUpper().toInt(NULL, 16);
-        data_int[data_ctr++] = ui->fieldByteCustom5->text().toUpper().toInt(NULL, 16);
-        data_int[data_ctr++] = ui->fieldByteCustom6->text().toUpper().toInt(NULL, 16);
-        data_int[data_ctr++] = ui->fieldByteCustom7->text().toUpper().toInt(NULL, 16);
-        // data_int[data_ctr++] = motorCounter;
-        data_int[data_ctr++] = ui->fieldByteCustom8->text().toUpper().toInt(NULL, 16);
+   // }
+    //else if (ui->checkbox_UPD->isChecked())
+    //{
+        // data_int[data_ctr++] = ui->fieldByteCustom1->text().toUpper().toInt(NULL, 16);
+        // data_int[data_ctr++] = ui->fieldByteCustom2->text().toUpper().toInt(NULL, 16);
+        // data_int[data_ctr++] = ui->fieldByteCustom3->text().toUpper().toInt(NULL, 16);
+        // data_int[data_ctr++] = ui->fieldByteCustom4->text().toUpper().toInt(NULL, 16);
+        // data_int[data_ctr++] = ui->fieldByteCustom5->text().toUpper().toInt(NULL, 16);
+        // data_int[data_ctr++] = ui->fieldByteCustom6->text().toUpper().toInt(NULL, 16);
+        // data_int[data_ctr++] = ui->fieldByteCustom7->text().toUpper().toInt(NULL, 16);
+        // // data_int[data_ctr++] = motorCounter;
+        // data_int[data_ctr++] = ui->fieldByteCustom8->text().toUpper().toInt(NULL, 16);
 
-        motorCounter++;
+        // motorCounter++;
 
-        ui->checkbox_UPD->setCheckState(Qt::CheckState::Unchecked);
-    }
-    else
-    {
+        // ui->checkbox_UPD->setCheckState(Qt::CheckState::Unchecked);
+   // }
+   // else
+    //{
         // data_int[7] = motorCounter;
-        data_int[7] = ui->fieldByteCustom8->text().toUpper().toInt(NULL, 16);
-        motorCounter++;
-    }
+    //    data_int[7] = ui->fieldByteCustom8->text().toUpper().toInt(NULL, 16);
+    //    motorCounter++;
+   // }
 
 
 
@@ -1281,17 +1361,27 @@ void RawTxWindow::Add_Label ()
     for(int i=0; i<dlc; i++)
     {
         msg.data[i]  = data_int[i];
+        msg.str_Data+= QString::number(data_int[i], 16)+ " ";
     }
 
     msg.address = address;
 
-    //==================================================
+    //==================================================================================================================================
+    msg.repeat_rate = new QTimer();
+    msg.period = ui->spinBox_RepeatRate_custom->value();
+    msg.repeat_rate -> stop();
+    //connect(msg.repeat_rate, SIGNAL(timeout()), this, SLOT(sendListMessage()));
+    //==================================================================================================================================
+
+    ///=================================================================================================================================
+
 
     Messages.append(msg);
+    add_label_to_table(Messages.size()-1);
 }
 
 
-void RawTxWindow::sendListMessage(Message message) // упрощенная версия функци отправки
+void RawTxWindow::sendListMessage(Message &message) // упрощенная версия функци отправки
 {
 
     CanMessage msg;
@@ -1388,10 +1478,33 @@ void RawTxWindow::sendListMessage(Message message) // упрощенная ве�
 
     fprintf(stderr, "Time diff %lld\n", QDateTime::currentMSecsSinceEpoch() - t1);
 }
+void RawTxWindow::add_label_to_table(int index)
+{
+    int newRow = ui->labelTableWidget->rowCount();          // индекс новой строки – текущий размер
+    ui->labelTableWidget->insertRow(newRow);                // добавляем пустую строку в конец
+
+    ui->labelTableWidget->setItem(index, 0, new QTableWidgetItem(QString::number(index)));
+    ui->labelTableWidget->setItem(index, 1, new QTableWidgetItem(Messages[index].ID));
+    ui->labelTableWidget->setItem(index, 2, new QTableWidgetItem(Messages[index].str_Data));
+    ui->labelTableWidget->setItem(index, 3, new QTableWidgetItem(QString::number(Messages[index].period)));
+    ui->labelTableWidget->setItem(index, 4, new QTableWidgetItem("Not going")); // значит, что метка добавлена, но не отправляется. (потои меняется)
+    //ui->labelTableWidget->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch); // потом растягиваем
+    QTableWidgetItem *itm = ui->labelTableWidget->item(index, 4);itm->setBackground(Qt::red);
+    ui->labelTableWidget->resizeColumnsToContents();
+}
+
+void RawTxWindow::remove_label_from_table(int index) // й!!!
+{
+
+    ui->labelTableWidget->removeRow(index);
+
+}
+
 
 void RawTxWindow::on_SendButton_clicked()
 {
     Add_Label();
+
 }
 
 
@@ -1410,16 +1523,62 @@ void RawTxWindow::on_DeleteButton_clicked()
 
 void RawTxWindow::on_activebut_clicked()
 {
-    if (RepeatListMessages->isActive())
+    if (ui->activebut->text() == "Отправить ВСЕ")
     {
-        sendRepeatMessage_custom(false);
-        ui->activebut->setText("Активировать");
+        ///sendRepeatMessage_custom(false);
+        ui->activebut->setText("ВСЕ СТОП");
+        for (int i =0; i < Messages.size(); i++)
+        {
+            Send_Label_Custom(&(Messages[i]), Start_All);
+            QTableWidgetItem *itm = ui->labelTableWidget->item(i, 4);
+            itm->setBackground(Qt::green);
+            itm->setText("Going");
+        }
+
     }
     else
     {
-        sendRepeatMessage_custom(true);
-         ui->activebut->setText("Деактивировать");
+        //sendRepeatMessage_custom(true);
+         ui->activebut->setText("Отправить ВСЕ");
+        for (int i =0; i < Messages.size(); i++)
+        {
+            Send_Label_Custom(&(Messages[i]), Stop_All);
+            QTableWidgetItem *itm = ui->labelTableWidget->item(i, 4);
+            itm->setBackground(Qt::red);
+            itm->setText("Not going");
+
+        }
     }
+
+}
+
+// row = index+1
+void RawTxWindow::on_labelTableWidget_cellClicked(int row, int column)
+{
+    if (column != 4) // кнопкой должна быть только ячейка с надписью о состоянии отправки
+        return;
+
+    QTableWidgetItem *itm = ui->labelTableWidget->item(row, column);
+    if (itm->text() == "Going") //
+    {
+        itm->setBackground(Qt::red);
+        Send_Label_Custom(&(Messages[row]), 3);
+        itm->setText("Not going");
+
+    }
+    else if (itm->text() == "Not going") //
+    {
+        itm->setBackground(Qt::green);
+        Send_Label_Custom(&(Messages[row]), 3);
+        itm->setText("Going");
+
+    }
+
+    //itm->setBackground(Qt::green); //
+
+    //Send_Label_Custom(Messages[row]);
+
+
 
 }
 

@@ -28,6 +28,7 @@
 
 //===============================================
 #include "SendingWidget.h"
+# include "QTableWidget"
 //===============================================
 
 
@@ -50,6 +51,9 @@ struct Message
     uint32_t address ;
     uint8_t data[8];
     QString ID;
+    QTimer * repeat_rate;
+    int period;
+    QString str_Data;
 };
 //===============================================================
 class RawTxWindow : public ConfigurableWidget
@@ -77,20 +81,28 @@ private slots:
 
 
     void QueueModeration();
+    void Send_Label_Custom(Message *msg, int regime);
     void Add_Label ();
     void Delete_Label(int index);
     void on_SendButton_clicked();
-    void sendListMessage(Message message);
+    void sendListMessage(Message &message);
+
 
     void on_DeleteButton_clicked();
-
+    void add_label_to_table(int index);
+    void remove_label_from_table(int index);
     void on_activebut_clicked();
     void sendRepeatMessage_custom(bool enable);
     void changeRepeatRate_custom(int ms);
 ///===============================================================================
+    void on_labelTableWidget_cellClicked(int row, int column);
+
 private:
+
+    //QTableWidget Label_Table;
     //=================================================================================
     QTimer * RepeatListMessages;
+    QStringList names_of_colomns;
     //=================================================================================
     Ui::RawTxWindow *ui;
     Backend &_backend;
